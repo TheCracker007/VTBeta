@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Binance monitor script
-        run: python monitor_binance.py
+        run: python update_price.py
 
       - name: Commit and push if changed
         run: |
