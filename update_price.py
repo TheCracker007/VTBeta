@@ -1,34 +1,49 @@
-# update_price.py
-
+import os
+import time
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from datetime import datetime
+from pytz import timezone
 
-def get_sell_price():
-    url = 'https://www.binance.com/en/orderbook/USDT_VAI'
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+load_dotenv()
 
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # Assuming the sell price is in the first row of the sell orders
-        sell_price = float(soup.select('.showPrice')[0].text.strip())
-        return sell_price
-    else:
-        return None
+# Binance URL for the order book
+binance_url = "https://www.binance.com/en/orderbook/USDT_VAI"
 
-def update_readme(price):
-    with open('readme.md', 'w') as readme_file:
-        if price >= 1.002:
-            readme_file.write(f"Price not reached, current price is {price} VAI/USDT")
-        else:
-            readme_file.write(f"Price reached, current price is {price} VAI/USDT")
+# Define the IST timezone
+ist = timezone('Asia/Kolkata')
+
+def update_readme(message, count):
+    # Get the current time in IST
+    current_time = datetime.now(ist)
+    # Format the time as HH:mm AM/PM
+    formatted_time = current_time.strftime('%I:%M %p')
+
+    with open('README.md', 'a') as f:
+        f.write(f"{count}. {formatted_time} - {message}\n")
+
+def monitor_binance_order_book():
+    response = requests.get(binance_url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    # Extract sell orders
+    sell_orders = soup.select('.sellOrderWrapper tbody tr')
+
+    price_hit = False
+    count = 1
+    for order in sell_orders:
+        price = float(order.select_one('.price').text.strip())
+        if price <= 1.000:
+            notification_message = f"Price Alert! Sell order price reached or went below 1.000 VAI\nPrice: {price}"
+            update_readme(notification_message, count)
+            price_hit = True
+            count += 1
+            break  # Stop checking further once the condition is met
+
+    if not price_hit:
+        update_readme("Didn't hit the target price in this check.", count)
+        count += 1
 
 if __name__ == "__main__":
-    sell_price = get_sell_price()
-
-    if sell_price is not None:
-        update_readme(sell_price)
+    monitor_binance_order_book()
